@@ -3,7 +3,6 @@ import logging
 import re
 from mkdocs.plugins import BasePlugin
 from requests import get, ConnectionError, Response
-from jinja2 import Template
 from urllib.parse import urljoin
 from typing import Optional
 
@@ -47,7 +46,18 @@ class EmbedExternalMarkdown(BasePlugin):
         """
         try:
             headers = {}
+            gt_token = os.getenv("GT_TOKEN")
             gh_token = os.getenv("GH_TOKEN")
+            if gt_token:
+                parts = url.split("/")
+                host = parts[2]
+                owner = parts[3]
+                repo = parts[4]
+                branch = parts[7]
+                branch_index = parts.index("branch")
+                filepath = "/".join(parts[branch_index + 2:])
+                file_url = f"https://{host}/api/v1/repos/{owner}/{repo}/raw/{filepath}?ref={branch}&token={gt_token}"
+                url = file_url
             if gh_token:
                 headers = {"Authorization": "token " + gh_token}
 
@@ -138,8 +148,12 @@ class EmbedExternalMarkdown(BasePlugin):
 
         return markdown
 
-    def on_page_markdown(self, markdown: str, config, **kwargs) -> str:
-        """
-        Render the markdown content using the Jinja2 template engine.
-        """
-        return Template(markdown).render(external_markdown=self.external_markdown, config=config)
+    def on_page_markdown(self, markdown: str, **kwargs) -> str:
+        markdowns = markdown.split("\n")
+        for mk in markdowns:
+            if mk.startswith("@include"):
+                fetch_all = re.findall(r"[\',\"](.*)[\',\"]",mk)[0]
+                fetch_all = fetch_all.replace('\'','"').split('"')
+                fetch_all_text = self.external_markdown(fetch_all[0],fetch_all[-1])
+                markdown = markdown.replace(mk,fetch_all_text)
+        return markdown
