@@ -5,6 +5,7 @@ from mkdocs.plugins import BasePlugin
 from requests import get, ConnectionError, Response
 from urllib.parse import urljoin
 from typing import Optional
+import traceback
 
 # Pre-compile regular expressions
 SECTION_LEVEL_REGEX = re.compile("^#+ ", re.IGNORECASE)
@@ -48,22 +49,25 @@ class EmbedExternalMarkdown(BasePlugin):
             headers = {}
             gt_token = os.getenv("GT_TOKEN")
             gh_token = os.getenv("GH_TOKEN")
-            if gt_token:
-                parts = url.split("/")
-                host = parts[2]
-                owner = parts[3]
-                repo = parts[4]
-                branch = parts[7]
-                branch_index = parts.index("branch")
-                filepath = "/".join(parts[branch_index + 2:])
-                file_url = f"https://{host}/api/v1/repos/{owner}/{repo}/raw/{filepath}?ref={branch}&token={gt_token}"
-                url = file_url
-            if gh_token:
-                headers = {"Authorization": "token " + gh_token}
+            if "raw/branch" in url:
+                if gt_token:
+                    parts = url.split("/")
+                    host = parts[2]
+                    owner = parts[3]
+                    repo = parts[4]
+                    branch = parts[7]
+                    branch_index = parts.index("branch")
+                    filepath = "/".join(parts[branch_index + 2:])
+                    file_url = f"https://{host}/api/v1/repos/{owner}/{repo}/raw/{filepath}?ref={branch}&token={gt_token}"
+                    url = file_url
+            if "raw.githubusercontent.com" in url:
+                if gh_token:
+                    headers = {"Authorization": "token " + gh_token}
 
             return get(url, headers=headers)
         except ConnectionError:
             logger.warning(f"{url} returned connection error")
+            traceback.print_exc()
             return None
 
     def get_markdown_from_response(self, response: Response, url: str) -> Optional[str]:
