@@ -98,7 +98,7 @@ class EmbedExternalMarkdown(BasePlugin):
         Extract a specific section from the markdown text.
         """
         try:
-            section_pattern = f"^{section_name.strip()}(?:[^#]|$)"
+            section_pattern = f"^{re.escape(section_name.strip())}(?:[^#]|$)"
             start_index = re.compile(section_pattern, re.MULTILINE | re.IGNORECASE).search(markdown).span()[1]
         except AttributeError:
             logger.warning(f'Section: "{section_name}" not found in markdown {url}')
